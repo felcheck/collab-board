@@ -1,11 +1,11 @@
 "use client";
 
 import { db } from "@/lib/db";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+import Canvas from "@/components/Canvas";
 
 export default function BoardPage() {
   const params = useParams();
-  const router = useRouter();
   const boardId = params.id as string;
 
   return (
@@ -51,11 +51,12 @@ function BoardView({ boardId }: { boardId: string }) {
   }
 
   const board = data.boards[0];
+  const stickyNotes = board.stickyNotes || [];
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 shadow-sm px-4 py-3 flex items-center justify-between">
+      <header className="bg-white border-b border-gray-200 shadow-sm px-4 py-3 flex items-center justify-between z-10">
         <div className="flex items-center gap-4">
           <a
             href="/"
@@ -67,6 +68,9 @@ function BoardView({ boardId }: { boardId: string }) {
         </div>
 
         <div className="flex items-center gap-4">
+          <span className="text-sm text-gray-600">
+            {stickyNotes.length} {stickyNotes.length === 1 ? "note" : "notes"}
+          </span>
           <button
             onClick={() => db.auth.signOut()}
             className="text-sm text-gray-600 hover:text-gray-900 font-medium"
@@ -76,15 +80,9 @@ function BoardView({ boardId }: { boardId: string }) {
         </div>
       </header>
 
-      {/* Canvas Area - Placeholder for now */}
+      {/* Canvas Area */}
       <main className="flex-1 relative overflow-hidden">
-        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-          <div className="text-center">
-            <div className="text-6xl mb-4">🎨</div>
-            <p className="text-lg">Canvas coming soon...</p>
-            <p className="text-sm">Double-click to add a sticky note</p>
-          </div>
-        </div>
+        <Canvas boardId={boardId} stickyNotes={stickyNotes} />
       </main>
     </div>
   );
