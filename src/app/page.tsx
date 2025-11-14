@@ -230,7 +230,7 @@ function Dashboard() {
           </p>
         </div>
 
-        <BoardGrid boards={data?.boards || []} userId={user.id} currentUserEmail={user.email} />
+        <BoardGrid boards={data?.boards || []} userId={user.id} currentUserEmail={user.email || null} />
       </main>
     </div>
   );
