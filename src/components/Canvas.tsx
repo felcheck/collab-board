@@ -66,17 +66,19 @@ export default function Canvas({ boardId, stickyNotes }: CanvasProps) {
   const room = db.room("board", boardId);
   const userColor = getColorForUser(user.id);
 
-  const { user: myPresence, peers, publishPresence } = db.rooms.usePresence<PresenceData>(
-    room,
-    {
-      initialPresence: {
-        name: user.email?.split("@")[0] || "Anonymous",
-        color: userColor,
-        cursorX: 0,
-        cursorY: 0,
-      }
-    }
+  const { user: myPresence, peers, publishPresence } = db.rooms.usePresence(
+    room
   );
+
+  // Update presence with user info on mount and when user changes
+  useEffect(() => {
+    publishPresence({
+      name: user.email?.split("@")[0] || "Anonymous",
+      color: userColor,
+      cursorX: 0,
+      cursorY: 0,
+    });
+  }, [user.email, userColor, publishPresence]);
 
   // Pan handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -301,7 +303,7 @@ function Cursor({ name, color, x, y }: CursorProps) {
 
 interface OnlineUsersProps {
   peers: Record<string, PresenceData>;
-  currentUser: PresenceData | null;
+  currentUser: PresenceData | null | undefined;
 }
 
 function OnlineUsers({ peers, currentUser }: OnlineUsersProps) {
