@@ -181,9 +181,9 @@ function Dashboard() {
   const { isLoading, error, data } = db.useQuery({
     boards: {
       $: {
-        where: { "creator.id": user.id },
         order: { createdAt: "desc" },
       },
+      creator: {},
     },
   });
 
@@ -224,13 +224,13 @@ function Dashboard() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">My Boards</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">All Boards</h2>
           <p className="text-gray-600">
-            Create a new board or continue working on an existing one
+            Collaborate with your team on any board in real-time
           </p>
         </div>
 
-        <BoardGrid boards={data?.boards || []} userId={user.id} />
+        <BoardGrid boards={data?.boards || []} userId={user.id} currentUserEmail={user.email} />
       </main>
     </div>
   );
@@ -239,9 +239,11 @@ function Dashboard() {
 function BoardGrid({
   boards,
   userId,
+  currentUserEmail,
 }: {
   boards: any[];
   userId: string;
+  currentUserEmail: string | null;
 }) {
   const [isCreating, setIsCreating] = useState(false);
   const [boardName, setBoardName] = useState("");
@@ -316,24 +318,39 @@ function BoardGrid({
       )}
 
       {/* Existing Boards */}
-      {boards.map((board) => (
-        <a
-          key={board.id}
-          href={`/board/${board.id}`}
-          className="h-48 rounded-2xl border border-gray-200 bg-white hover:shadow-xl transition-all flex flex-col p-6 group hover:-translate-y-1"
-        >
-          <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-purple-700 transition-colors">
-            {board.name}
-          </h3>
-          <p className="text-sm text-gray-500">
-            Created {new Date(board.createdAt).toLocaleDateString()}
-          </p>
-          <div className="flex-1" />
-          <div className="text-sm font-medium text-purple-600 group-hover:text-purple-700">
-            Open board →
-          </div>
-        </a>
-      ))}
+      {boards.map((board) => {
+        const isOwnBoard = board.creator?.id === userId;
+        const creatorEmail = board.creator?.email || "Unknown";
+
+        return (
+          <a
+            key={board.id}
+            href={`/board/${board.id}`}
+            className="h-48 rounded-2xl border border-gray-200 bg-white hover:shadow-xl transition-all flex flex-col p-6 group hover:-translate-y-1"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <h3 className="text-xl font-bold text-gray-900 group-hover:text-purple-700 transition-colors">
+                {board.name}
+              </h3>
+              {isOwnBoard && (
+                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">
+                  You
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-gray-500 mb-1">
+              Created {new Date(board.createdAt).toLocaleDateString()}
+            </p>
+            <p className="text-xs text-gray-400">
+              by {isOwnBoard ? "you" : creatorEmail}
+            </p>
+            <div className="flex-1" />
+            <div className="text-sm font-medium text-purple-600 group-hover:text-purple-700">
+              Open board →
+            </div>
+          </a>
+        );
+      })}
     </div>
   );
 }
