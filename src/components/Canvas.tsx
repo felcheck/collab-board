@@ -9,6 +9,13 @@ interface CanvasProps {
   stickyNotes: any[];
 }
 
+interface PresenceData {
+  name: string;
+  color: string;
+  cursorX: number;
+  cursorY: number;
+}
+
 interface ViewState {
   scale: number;
   offsetX: number;
@@ -23,7 +30,27 @@ const COLORS = {
   purple: "#E9D5FF",
 };
 
+const CURSOR_COLORS = [
+  "#F59E0B", // amber
+  "#EC4899", // pink
+  "#8B5CF6", // purple
+  "#10B981", // emerald
+  "#3B82F6", // blue
+  "#EF4444", // red
+  "#14B8A6", // teal
+  "#F97316", // orange
+];
+
+function getColorForUser(userId: string): string {
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = userId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return CURSOR_COLORS[Math.abs(hash) % CURSOR_COLORS.length];
+}
+
 export default function Canvas({ boardId, stickyNotes }: CanvasProps) {
+  const user = db.useUser();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [viewState, setViewState] = useState<ViewState>({
     scale: 1,
@@ -34,6 +61,22 @@ export default function Canvas({ boardId, stickyNotes }: CanvasProps) {
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const [selectedNote, setSelectedNote] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState<string | null>(null);
+
+  // Set up presence room
+  const room = db.room("board", boardId);
+  const userColor = getColorForUser(user.id);
+
+  const { user: myPresence, peers, publishPresence } = db.rooms.usePresence<PresenceData>(
+    room,
+    {
+      initialPresence: {
+        name: user.email?.split("@")[0] || "Anonymous",
+        color: userColor,
+        cursorX: 0,
+        cursorY: 0,
+      }
+    }
+  );
 
   // Pan handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -52,7 +95,18 @@ export default function Canvas({ boardId, stickyNotes }: CanvasProps) {
         offsetY: e.clientY - panStart.y,
       }));
     }
-  }, [isPanning, panStart]);
+
+    // Update cursor position for presence
+    if (canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      publishPresence({
+        cursorX: x,
+        cursorY: y,
+      });
+    }
+  }, [isPanning, panStart, publishPresence]);
 
   const handleMouseUp = useCallback(() => {
     setIsPanning(false);
@@ -181,6 +235,117 @@ export default function Canvas({ boardId, stickyNotes }: CanvasProps) {
           </div>
         </div>
       )}
+
+      {/* Live Cursors */}
+      {Object.entries(peers).map(([peerId, peer]) => (
+        <Cursor
+          key={peerId}
+          name={peer.name}
+          color={peer.color}
+          x={peer.cursorX}
+          y={peer.cursorY}
+        />
+      ))}
+
+      {/* Online Users List */}
+      <OnlineUsers peers={peers} currentUser={myPresence} />
+    </div>
+  );
+}
+
+interface CursorProps {
+  name: string;
+  color: string;
+  x: number;
+  y: number;
+}
+
+function Cursor({ name, color, x, y }: CursorProps) {
+  return (
+    <div
+      className="absolute pointer-events-none transition-all duration-100 ease-out z-50"
+      style={{
+        left: x,
+        top: y,
+        transform: "translate(-2px, -2px)",
+      }}
+    >
+      {/* Cursor SVG */}
+      <svg
+        width="24"
+        height="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M5.65376 12.3673L8.84496 15.5585L11.5842 21.4144L13.984 19.0146L11.2448 13.1587L17.1007 10.4195L14.7009 8.01974L5.65376 12.3673Z"
+          fill={color}
+          stroke="white"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+
+      {/* Name Label */}
+      <div
+        className="ml-4 -mt-2 px-2 py-1 rounded-md text-xs font-medium text-white whitespace-nowrap shadow-lg"
+        style={{ backgroundColor: color }}
+      >
+        {name}
+      </div>
+    </div>
+  );
+}
+
+interface OnlineUsersProps {
+  peers: Record<string, PresenceData>;
+  currentUser: PresenceData | null;
+}
+
+function OnlineUsers({ peers, currentUser }: OnlineUsersProps) {
+  const peerCount = Object.keys(peers).length;
+  const totalUsers = peerCount + 1; // +1 for current user
+
+  return (
+    <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-3 min-w-[200px] z-40">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+        <span className="text-sm font-medium text-gray-700">
+          {totalUsers} online
+        </span>
+      </div>
+
+      <div className="space-y-2">
+        {/* Current User */}
+        {currentUser && (
+          <div className="flex items-center gap-2">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+              style={{ backgroundColor: currentUser.color }}
+            >
+              {currentUser.name.charAt(0).toUpperCase()}
+            </div>
+            <span className="text-sm text-gray-700">
+              {currentUser.name} <span className="text-gray-400">(you)</span>
+            </span>
+          </div>
+        )}
+
+        {/* Other Users */}
+        {Object.entries(peers).map(([peerId, peer]) => (
+          <div key={peerId} className="flex items-center gap-2">
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+              style={{ backgroundColor: peer.color }}
+            >
+              {peer.name.charAt(0).toUpperCase()}
+            </div>
+            <span className="text-sm text-gray-700">{peer.name}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
