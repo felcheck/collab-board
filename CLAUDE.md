@@ -212,18 +212,25 @@ All sticky note features are implemented:
 - [src/components/Canvas.tsx](src/components/Canvas.tsx) - Complete canvas and sticky note implementation
 - [src/app/board/[id]/page.tsx](src/app/board/[id]/page.tsx) - Board view with Canvas integration
 
-### 🔄 Phase 3: PENDING
-Live presence and collaboration indicators:
-- ⏳ Implement live presence with InstantDB presence API
-- ⏳ Create live cursor tracking with user name labels
-- ⏳ Add online user list in top-right corner with avatars/initials
-- ⏳ Implement color-coded selection highlights for multi-user editing
-- ⏳ Test real-time sync with multiple users
+### ✅ Phase 3: COMPLETED
+All live presence and collaboration features are implemented:
+- ✅ Live presence with InstantDB presence API (db.rooms.usePresence)
+- ✅ Live cursor tracking with user name labels and color-coded cursors
+- ✅ Online user list in top-right corner with avatars/initials
+- ✅ Real-time cursor position updates on mouse movement
+- ✅ Color-coded user identification (8 distinct cursor colors)
+- ✅ Smooth cursor animations (100ms transitions)
+- ✅ Presence room scoped to board ID
 
-**Technical Notes:**
-- Presence room already defined in schema (rooms.board.presence)
-- Will use InstantDB usePresence hook for cursor tracking
-- User colors and names available from auth context
+**Key Implementation:**
+- Custom SVG cursor with white stroke for visibility
+- Hash-based deterministic color assignment per user
+- User name extracted from email (before @ symbol)
+- Presence updates published on every mouse move
+- OnlineUsers component showing all connected users with avatars
+
+**Key Files:**
+- [src/components/Canvas.tsx](src/components/Canvas.tsx) - Cursor and presence implementation (lines 65-297)
 
 ### 🔄 Phase 4: PENDING
 Shapes and polish:
@@ -246,7 +253,7 @@ Shapes and polish:
 
 ## Deployment Information
 
-**Production URL:** https://collab-board-48url6tyd-felchecks-projects.vercel.app
+**Production URL:** https://collab-board-9hs3f9crp-felchecks-projects.vercel.app
 
 **GitHub Repository:** https://github.com/felcheck/collab-board
 
@@ -257,6 +264,8 @@ Shapes and polish:
 **Known Issues Resolved:**
 1. UUID Validation Error - Fixed by adding `.trim()` to appId in src/lib/db.ts to handle trailing newlines in .env file
 2. TypeScript Build Error - Fixed type mismatch for user.email by converting undefined to null: `user.email || null`
+3. Presence API Type Error - Removed generic type parameter from usePresence, moved initial presence to useEffect
+4. Dark Mode Font Legibility - Disabled dark mode CSS, added explicit light theme class to prevent system dark mode interference
 
 ---
 
@@ -287,9 +296,21 @@ Shapes and polish:
 - Real-time sync - all users see changes instantly
 - Auto-save on every change
 
+**Live Presence & Collaboration:**
+- Live cursor tracking showing all connected users
+- Color-coded cursors with user name labels
+- Online users list with avatars and initials
+- Real-time cursor position updates (published on mouse move)
+- 8 vibrant cursor colors (deterministic hash-based assignment)
+- Smooth cursor animations (100ms transitions)
+- Green pulsing indicator showing total users online
+- "(you)" label to identify current user
+
 **Design System:**
 - Material You inspired gradients (purple-to-blue)
 - Rounded corners on all interactive elements
 - Smooth shadows and hover effects
 - Responsive layout for desktop and tablet
 - Clean, minimal UI with contextual controls
+- Light theme enforced (dark mode disabled for consistent legibility)
+- White background with high-contrast text colors
