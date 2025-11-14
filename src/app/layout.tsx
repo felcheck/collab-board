@@ -13,8 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Create Instant App',
-  description: 'Instant DB Starter App',
+  title: 'CollabBoard - Real-time Collaborative Whiteboard',
+  description: 'Real-time collaborative whiteboard for teams. Create sticky notes, shapes, and collaborate in real-time.',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
