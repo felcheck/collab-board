@@ -1,169 +1,339 @@
 "use client";
 
 import { db } from "@/lib/db";
-import { type AppSchema } from "@/instant.schema";
-import { id, InstaQLEntity } from "@instantdb/react";
+import { id } from "@instantdb/react";
+import { useState } from "react";
 
-type Todo = InstaQLEntity<AppSchema, "todos">;
-
-const room = db.room("todos");
-
-function App() {
-  // Read Data
-  const { isLoading, error, data } = db.useQuery({ todos: {} });
-  const { peers } = db.rooms.usePresence(room);
-  const numUsers = 1 + Object.keys(peers).length;
-  if (isLoading) {
-    return;
-  }
-  if (error) {
-    return <div className="text-red-500 p-4">Error: {error.message}</div>;
-  }
-  const { todos } = data;
+export default function App() {
   return (
-    <div className="font-mono min-h-screen flex justify-center items-center flex-col space-y-4">
-      <div className="text-xs text-gray-500">
-        Number of users online: {numUsers}
-      </div>
-      <h2 className="tracking-wide text-5xl text-gray-300">todos</h2>
-      <div className="border border-gray-300 max-w-xs w-full">
-        <TodoForm todos={todos} />
-        <TodoList todos={todos} />
-        <ActionBar todos={todos} />
-      </div>
-      <div className="text-xs text-center">
-        Open another tab to see todos update in realtime!
+    <div>
+      <db.SignedOut>
+        <Login />
+      </db.SignedOut>
+      <db.SignedIn>
+        <Dashboard />
+      </db.SignedIn>
+    </div>
+  );
+}
+
+// Authentication Components
+function Login() {
+  const [sentEmail, setSentEmail] = useState("");
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
+      <div className="max-w-md w-full mx-4">
+        {!sentEmail ? (
+          <EmailStep onSendEmail={setSentEmail} />
+        ) : (
+          <CodeStep sentEmail={sentEmail} onBack={() => setSentEmail("")} />
+        )}
       </div>
     </div>
   );
 }
 
-// Write Data
-// ---------
-function addTodo(text: string) {
-  db.transact(
-    db.tx.todos[id()].update({
-      text,
-      done: false,
-      createdAt: Date.now(),
-    }),
-  );
-}
+function EmailStep({ onSendEmail }: { onSendEmail: (email: string) => void }) {
+  const [email, setEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-function deleteTodo(todo: Todo) {
-  db.transact(db.tx.todos[todo.id].delete());
-}
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
 
-function toggleDone(todo: Todo) {
-  db.transact(db.tx.todos[todo.id].update({ done: !todo.done }));
-}
+    setIsLoading(true);
+    try {
+      await db.auth.sendMagicCode({ email });
+      onSendEmail(email);
+    } catch (err: any) {
+      alert(`Error: ${err.body?.message || "Failed to send magic code"}`);
+      setIsLoading(false);
+    }
+  };
 
-function deleteCompleted(todos: Todo[]) {
-  const completed = todos.filter((todo) => todo.done);
-  const txs = completed.map((todo) => db.tx.todos[todo.id].delete());
-  db.transact(txs);
-}
-
-function toggleAll(todos: Todo[]) {
-  const newVal = !todos.every((todo) => todo.done);
-  db.transact(
-    todos.map((todo) => db.tx.todos[todo.id].update({ done: newVal })),
-  );
-}
-
-// Components
-// ----------
-function ChevronDownIcon() {
   return (
-    <svg viewBox="0 0 20 20">
-      <path
-        d="M5 8 L10 13 L15 8"
-        stroke="currentColor"
-        fill="none"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-}
+    <div className="bg-white rounded-3xl shadow-xl p-8 border border-purple-100">
+      <div className="text-center mb-8">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
+          CollabBoard
+        </h1>
+        <p className="text-gray-600">
+          Real-time collaborative whiteboard for teams
+        </p>
+      </div>
 
-function TodoForm({ todos }: { todos: Todo[] }) {
-  return (
-    <div className="flex items-center h-10 border-b border-gray-300">
-      <button
-        className="h-full px-2 border-r border-gray-300 flex items-center justify-center"
-        onClick={() => toggleAll(todos)}
-      >
-        <div className="w-5 h-5">
-          <ChevronDownIcon />
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
+            Email address
+          </label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+            autoFocus
+            disabled={isLoading}
+            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          />
         </div>
-      </button>
-      <form
-        className="flex-1 h-full"
-        onSubmit={(e) => {
-          e.preventDefault();
-          const input = e.currentTarget.input as HTMLInputElement;
-          addTodo(input.value);
-          input.value = "";
-        }}
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium py-3 rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+        >
+          {isLoading ? "Sending code..." : "Send magic link"}
+        </button>
+      </form>
+
+      <p className="text-center text-sm text-gray-500 mt-6">
+        We'll send you a verification code to sign in
+      </p>
+    </div>
+  );
+}
+
+function CodeStep({
+  sentEmail,
+  onBack,
+}: {
+  sentEmail: string;
+  onBack: () => void;
+}) {
+  const [code, setCode] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!code.trim()) return;
+
+    setIsLoading(true);
+    try {
+      await db.auth.signInWithMagicCode({ email: sentEmail, code });
+    } catch (err: any) {
+      alert(`Error: ${err.body?.message || "Invalid code"}`);
+      setCode("");
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-3xl shadow-xl p-8 border border-purple-100">
+      <button
+        onClick={onBack}
+        className="text-purple-600 hover:text-purple-700 mb-6 flex items-center gap-2 text-sm font-medium"
       >
-        <input
-          className="w-full h-full px-2 outline-none bg-transparent"
-          autoFocus
-          placeholder="What needs to be done?"
-          type="text"
-          name="input"
-        />
+        ← Back
+      </button>
+
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          Check your email
+        </h2>
+        <p className="text-gray-600">
+          We sent a code to <strong>{sentEmail}</strong>
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label
+            htmlFor="code"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
+            Verification code
+          </label>
+          <input
+            id="code"
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="123456"
+            required
+            autoFocus
+            disabled={isLoading}
+            className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all text-center text-2xl tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium py-3 rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+        >
+          {isLoading ? "Verifying..." : "Verify code"}
+        </button>
       </form>
     </div>
   );
 }
 
-function TodoList({ todos }: { todos: Todo[] }) {
+// Dashboard Components
+function Dashboard() {
+  const user = db.useUser();
+  const { isLoading, error, data } = db.useQuery({
+    boards: {
+      $: {
+        where: { "creator.id": user.id },
+        order: { createdAt: "desc" },
+      },
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-600">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-red-600">Error: {error.message}</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="divide-y divide-gray-300">
-      {todos.map((todo) => (
-        <div key={todo.id} className="flex items-center h-10">
-          <div className="h-full px-2 flex items-center justify-center">
-            <div className="w-5 h-5 flex items-center justify-center">
-              <input
-                type="checkbox"
-                className="cursor-pointer"
-                checked={todo.done}
-                onChange={() => toggleDone(todo)}
-              />
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
+      <header className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+            CollabBoard
+          </h1>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">{user.email}</span>
+            <button
+              onClick={() => db.auth.signOut()}
+              className="text-sm text-gray-600 hover:text-gray-900 font-medium"
+            >
+              Sign out
+            </button>
           </div>
-          <div className="flex-1 px-2 overflow-hidden flex items-center">
-            {todo.done ? (
-              <span className="line-through">{todo.text}</span>
-            ) : (
-              <span>{todo.text}</span>
-            )}
-          </div>
-          <button
-            className="h-full px-2 flex items-center justify-center text-gray-300 hover:text-gray-500"
-            onClick={() => deleteTodo(todo)}
-          >
-            X
-          </button>
         </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">My Boards</h2>
+          <p className="text-gray-600">
+            Create a new board or continue working on an existing one
+          </p>
+        </div>
+
+        <BoardGrid boards={data?.boards || []} userId={user.id} />
+      </main>
+    </div>
+  );
+}
+
+function BoardGrid({
+  boards,
+  userId,
+}: {
+  boards: any[];
+  userId: string;
+}) {
+  const [isCreating, setIsCreating] = useState(false);
+  const [boardName, setBoardName] = useState("");
+
+  const handleCreateBoard = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!boardName.trim()) return;
+
+    const boardId = id();
+    await db.transact(
+      db.tx.boards[boardId]
+        .update({
+          name: boardName,
+          createdAt: Date.now(),
+        })
+        .link({ creator: userId })
+    );
+
+    setBoardName("");
+    setIsCreating(false);
+
+    // Navigate to the new board
+    window.location.href = `/board/${boardId}`;
+  };
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Create New Board Card */}
+      {!isCreating ? (
+        <button
+          onClick={() => setIsCreating(true)}
+          className="h-48 rounded-2xl border-2 border-dashed border-purple-300 hover:border-purple-500 bg-white hover:bg-purple-50 transition-all flex flex-col items-center justify-center gap-3 group"
+        >
+          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 flex items-center justify-center text-white text-2xl group-hover:scale-110 transition-transform">
+            +
+          </div>
+          <span className="text-lg font-medium text-gray-700 group-hover:text-purple-700">
+            Create New Board
+          </span>
+        </button>
+      ) : (
+        <div className="h-48 rounded-2xl border-2 border-purple-500 bg-white p-6 flex flex-col">
+          <form onSubmit={handleCreateBoard} className="flex-1 flex flex-col">
+            <input
+              type="text"
+              value={boardName}
+              onChange={(e) => setBoardName(e.target.value)}
+              placeholder="Board name"
+              autoFocus
+              className="flex-1 text-lg font-medium outline-none border-b-2 border-purple-200 focus:border-purple-500 transition-colors mb-4"
+            />
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium py-2 rounded-lg hover:shadow-md transition-all"
+              >
+                Create
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreating(false);
+                  setBoardName("");
+                }}
+                className="flex-1 bg-gray-200 text-gray-700 font-medium py-2 rounded-lg hover:bg-gray-300 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Existing Boards */}
+      {boards.map((board) => (
+        <a
+          key={board.id}
+          href={`/board/${board.id}`}
+          className="h-48 rounded-2xl border border-gray-200 bg-white hover:shadow-xl transition-all flex flex-col p-6 group hover:-translate-y-1"
+        >
+          <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-purple-700 transition-colors">
+            {board.name}
+          </h3>
+          <p className="text-sm text-gray-500">
+            Created {new Date(board.createdAt).toLocaleDateString()}
+          </p>
+          <div className="flex-1" />
+          <div className="text-sm font-medium text-purple-600 group-hover:text-purple-700">
+            Open board →
+          </div>
+        </a>
       ))}
     </div>
   );
 }
-
-function ActionBar({ todos }: { todos: Todo[] }) {
-  return (
-    <div className="flex justify-between items-center h-10 px-2 text-xs border-t border-gray-300">
-      <div>Remaining todos: {todos.filter((todo) => !todo.done).length}</div>
-      <button
-        className=" text-gray-300 hover:text-gray-500"
-        onClick={() => deleteCompleted(todos)}
-      >
-        Delete Completed
-      </button>
-    </div>
-  );
-}
-
-export default App;

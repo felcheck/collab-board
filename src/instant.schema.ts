@@ -13,10 +13,30 @@ const _schema = i.schema({
       imageURL: i.string().optional(),
       type: i.string().optional(),
     }),
-    todos: i.entity({
-      text: i.string(),
-      done: i.boolean(),
-      createdAt: i.number(),
+    boards: i.entity({
+      name: i.string(),
+      createdAt: i.number().indexed(),
+    }),
+    stickyNotes: i.entity({
+      content: i.string(),
+      x: i.number(),
+      y: i.number(),
+      color: i.string(),
+      width: i.number(),
+      height: i.number(),
+      createdAt: i.number().indexed(),
+      updatedAt: i.number().indexed(),
+    }),
+    shapes: i.entity({
+      type: i.string(), // rectangle, circle, triangle, line, arrow
+      x: i.number(),
+      y: i.number(),
+      width: i.number(),
+      height: i.number(),
+      color: i.string(),
+      strokeWidth: i.number(),
+      createdAt: i.number().indexed(),
+      updatedAt: i.number().indexed(),
     }),
   },
   links: {
@@ -33,10 +53,75 @@ const _schema = i.schema({
         label: "linkedGuestUsers",
       },
     },
+    boardCreator: {
+      forward: {
+        on: "boards",
+        has: "one",
+        label: "creator",
+      },
+      reverse: {
+        on: "$users",
+        has: "many",
+        label: "createdBoards",
+      },
+    },
+    stickyNoteBoard: {
+      forward: {
+        on: "stickyNotes",
+        has: "one",
+        label: "board",
+      },
+      reverse: {
+        on: "boards",
+        has: "many",
+        label: "stickyNotes",
+      },
+    },
+    stickyNoteCreator: {
+      forward: {
+        on: "stickyNotes",
+        has: "one",
+        label: "creator",
+      },
+      reverse: {
+        on: "$users",
+        has: "many",
+        label: "createdStickyNotes",
+      },
+    },
+    shapeBoard: {
+      forward: {
+        on: "shapes",
+        has: "one",
+        label: "board",
+      },
+      reverse: {
+        on: "boards",
+        has: "many",
+        label: "shapes",
+      },
+    },
+    shapeCreator: {
+      forward: {
+        on: "shapes",
+        has: "one",
+        label: "creator",
+      },
+      reverse: {
+        on: "$users",
+        has: "many",
+        label: "createdShapes",
+      },
+    },
   },
   rooms: {
-    todos: {
-      presence: i.entity({}),
+    board: {
+      presence: i.entity({
+        name: i.string(),
+        color: i.string(),
+        cursorX: i.number(),
+        cursorY: i.number(),
+      }),
     },
   },
 });
